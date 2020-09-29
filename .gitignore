@@ -4,6 +4,7 @@
 .idea/
 
 # Data
-bman93_job/*
-!bman93_job/__gitkeep__
+**/data/raw/**/*.zip
+**/data/raw/**/*.csv
+
 
