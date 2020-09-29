@@ -1,3 +1,9 @@
 # Permanent ignore
 .DS_Store
 .ipynb_checkpoints/
+.idea/
+
+# Data
+bman93_job/*
+!bman93_job/__gitkeep__
+
