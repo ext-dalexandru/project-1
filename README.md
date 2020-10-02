@@ -41,12 +41,3 @@ Taxonomy model:
 + percent found in same job description,
 + co-occurence etc.
 
----
-
-## Data
-
-Dataset used: https://www.kaggle.com/bman93/dataset
-
-Better dataset: https://www.kaggle.com/madhab/jobposts  
-Out of: https://www.kaggle.com/datasets?search=job
-
