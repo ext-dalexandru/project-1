@@ -4,6 +4,7 @@ from collections import Counter
 from functools import reduce
 import json
 # import os
+import re
 
 from tqdm import tqdm
 tqdm.pandas()
@@ -12,7 +13,7 @@ import pandas as pd
 
 import spacy
 nlp = spacy.load('en_core_web_sm')
-
+from textpipe import doc
 
 def check_associations(association, elem_a, elem_b):
     """Check if association pair is in dictionary
@@ -66,6 +67,10 @@ def title_associations(df_slice, title_column_name, symmetric=False):
 
     return associations
 
+def clean_tags(text):
+    # clean_regex = re.compile('<.*?>')
+    # cleantext = re.sub(clean_regex, '', ' '.join(cleaned))
+    return doc.Doc(text).clean
 
 def lemmatization(text, allowed_postags=['NOUN', 'PROPN', 'ADJ']):
     doc = nlp(text)
@@ -105,8 +110,12 @@ if __name__ == '__main__':
     # Time issues
     df = df[:50]
 
+
+    print('Running clean_tags(): ')
+    df['Description_clean'] = df.Description.progress_apply(clean_tags)
+
     print('Running lemmatization(): ')
-    df['Description_lemmatized'] = df.Description.progress_apply(lemmatization)
+    df['Description_lemmatized'] = df.Description_clean.progress_apply(lemmatization)
 
     print('Running Counter(): ')
     df['Description_lemmatized_wc'] = df.Description_lemmatized.progress_apply(Counter)
@@ -128,4 +137,4 @@ if __name__ == '__main__':
         )
         # print(result)
 
-        json.dump(result, open(f'../data/processed/titles_global_counter/nouns_count_{title}.json', 'w'))
+        json.dump(result, open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
