@@ -1,6 +1,6 @@
 """Spacy code refactored from the notebook
 """
-from collections import Counter
+from collections import Counter, OrderedDict
 from functools import reduce
 import json
 # import os
@@ -67,12 +67,29 @@ def title_associations(df_slice, title_column_name, symmetric=False):
 
     return associations
 
-def clean_tags(text):
-    # clean_regex = re.compile('<.*?>')
-    # cleantext = re.sub(clean_regex, '', ' '.join(cleaned))
-    return doc.Doc(text).clean
+def clean_tags(html_body):
+    # doc.Doc(text).clean
 
-def lemmatization(text, allowed_postags=['NOUN', 'PROPN', 'ADJ']):
+    html_body = html_body.strip()
+    html_body = re.sub('<[^<]+?>', '', html_body).strip()
+    html_body = re.sub('<[^>]*(>|$)|&nbsp;|&zwnj;|&amp;|&raquo;|&laquo;|&gt', ' ', html_body)
+    html_body = re.sub('\s+', ' ', html_body).strip()
+    html_tokens = [p for p in html_body.split(" ") if len(p) <= 46]
+
+    html_body = " ".join(html_tokens)
+    html_body = str(html_body.encode('ascii', errors='ignore'))
+    html_body = re.sub('\s+', ' ', html_body).strip()
+    html_body = re.sub('\\\\r', '', html_body).strip()
+    html_body = re.sub('\\\\n', '', html_body).strip()
+    html_body = re.sub('\\t', '', html_body).strip()
+    html_body = re.sub('\\\\', '', html_body).strip()
+
+    if html_body.startswith("b'") and html_body.endswith("'"):
+        html_body = html_body[2:-1]
+
+    return str(html_body)
+
+def lemmatization(text, allowed_postags=['NOUN', 'PROPN']):
     doc = nlp(text)
     texts_out = [token.lemma_.lower() for token in doc if token.pos_ in allowed_postags]
     return texts_out
@@ -108,8 +125,7 @@ if __name__ == '__main__':
 
     # ================== Keyword association ===================================
     # Time issues
-    df = df[:50]
-
+    # df = df[:50]
 
     print('Running clean_tags(): ')
     df['Description_clean'] = df.Description.progress_apply(clean_tags)
@@ -135,6 +151,5 @@ if __name__ == '__main__':
                     .Description_lemmatized_wc.values
             )
         )
-        # print(result)
 
-        json.dump(result, open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
+        json.dump(OrderedDict(result.most_common()), open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
