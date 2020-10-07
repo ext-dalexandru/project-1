@@ -14,6 +14,7 @@ import pandas as pd
 import spacy
 nlp = spacy.load('en_core_web_sm')
 from textpipe import doc
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 def check_associations(association, elem_a, elem_b):
     """Check if association pair is in dictionary
@@ -68,7 +69,7 @@ def title_associations(df_slice, title_column_name, symmetric=False):
     return associations
 
 def clean_tags(html_body):
-    # doc.Doc(text).clean
+    # html_body = doc.Doc(html_body).clean
 
     html_body = html_body.strip()
     html_body = re.sub('<[^<]+?>', '', html_body).strip()
@@ -79,13 +80,13 @@ def clean_tags(html_body):
     html_body = " ".join(html_tokens)
     html_body = str(html_body.encode('ascii', errors='ignore'))
     html_body = re.sub('\s+', ' ', html_body).strip()
-    html_body = re.sub('\\\\r', '', html_body).strip()
-    html_body = re.sub('\\\\n', '', html_body).strip()
-    html_body = re.sub('\\t', '', html_body).strip()
-    html_body = re.sub('\\\\', '', html_body).strip()
+    html_body = re.sub('\\*r', '', html_body).strip()
+    html_body = re.sub('\\*n', '', html_body).strip()
+    html_body = re.sub('\\*t', '', html_body).strip() #TODO
+    html_body = re.sub('\\*', '', html_body).strip()
 
     if html_body.startswith("b'") and html_body.endswith("'"):
-        html_body = html_body[2:-1]
+        html_body = html_body[2:-3]
 
     return str(html_body)
 
@@ -125,7 +126,7 @@ if __name__ == '__main__':
 
     # ================== Keyword association ===================================
     # Time issues
-    # df = df[:50]
+    df = df[:50]
 
     print('Running clean_tags(): ')
     df['Description_clean'] = df.Description.progress_apply(clean_tags)
@@ -144,6 +145,19 @@ if __name__ == '__main__':
     data = df[df.Query_word_len == 2].Query.unique()
 
     for title in data:
+        # tf-idf datasets
+        tfIdfVectorizer = TfidfVectorizer(use_idf=True)
+        tfIdf = tfIdfVectorizer.fit_transform(df[df.Query == title].Description_clean)
+
+        df_tf = pd.DataFrame(tfIdf[0].T.todense(), index=tfIdfVectorizer.get_feature_names(), columns=["TF-IDF"])
+        df_tf = df_tf.reset_index(level=0)
+        df_tf = df_tf.rename(columns={'index': 'term', 'TF-IDF': 'tfidf_score'})
+
+        df_tf = df_tf[df_tf.tfidf_score > 0]
+        df_tf = df_tf.sort_values('tfidf_score', ascending=False)
+        df_tf.to_csv(f'../data/processed/descriptions_tfidf/tf_{title}.csv', index=False)
+
+        # counter datasets
         result = reduce(
             lambda l1, l2: l1 + l2,
             tqdm(
@@ -152,4 +166,11 @@ if __name__ == '__main__':
             )
         )
 
-        json.dump(OrderedDict(result.most_common()), open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
+        df_result = pd.DataFrame.from_dict(result, orient='index').reset_index()
+        df_result = df_result.rename(columns={'index': 'term', 0: 'freq'})
+
+        df_result = df_result[df_result.freq >= 5]
+        df_result = df_result.sort_values('freq', ascending=False)
+        df_result.to_csv(f'../data/processed/descriptions_global_counter/ncount_{title}.csv', index=False)
+
+        # json.dump(OrderedDict(result.most_common()), open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
