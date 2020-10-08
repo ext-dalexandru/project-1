@@ -1,6 +1,7 @@
 """Spacy code refactored from the notebook
 """
-from collections import Counter, OrderedDict
+# from collections import OrderedDict
+from collections import Counter
 from functools import reduce
 import json
 # import os
@@ -13,8 +14,9 @@ import pandas as pd
 
 import spacy
 nlp = spacy.load('en_core_web_sm')
-from textpipe import doc
+# from textpipe import doc
 from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 def check_associations(association, elem_a, elem_b):
     """Check if association pair is in dictionary
@@ -69,20 +71,27 @@ def title_associations(df_slice, title_column_name, symmetric=False):
     return associations
 
 def clean_tags(html_body):
+    """Text cleaning function.
+
+    :param html_body: text as html/pseudo-html body
+    :return: string
+    """
+    # textpipe alternative
     # html_body = doc.Doc(html_body).clean
 
+    # TODO: make it faster
     html_body = html_body.strip()
     html_body = re.sub('<[^<]+?>', '', html_body).strip()
     html_body = re.sub('<[^>]*(>|$)|&nbsp;|&zwnj;|&amp;|&raquo;|&laquo;|&gt', ' ', html_body)
-    html_body = re.sub('\s+', ' ', html_body).strip()
+    html_body = re.sub('\s+', ' ', html_body).strip() # TODO: check in Pythex
     html_tokens = [p for p in html_body.split(" ") if len(p) <= 46]
 
     html_body = " ".join(html_tokens)
     html_body = str(html_body.encode('ascii', errors='ignore'))
-    html_body = re.sub('\s+', ' ', html_body).strip()
+    html_body = re.sub('\s+', ' ', html_body).strip() # TODO: check in Pythex
     html_body = re.sub('\\*r', '', html_body).strip()
     html_body = re.sub('\\*n', '', html_body).strip()
-    html_body = re.sub('\\*t', '', html_body).strip() #TODO
+    html_body = re.sub('\\*t', '', html_body).strip()
     html_body = re.sub('\\*', '', html_body).strip()
 
     if html_body.startswith("b'") and html_body.endswith("'"):
@@ -90,19 +99,17 @@ def clean_tags(html_body):
 
     return str(html_body)
 
-def lemmatization(text, allowed_postags=['NOUN', 'PROPN']):
+def lemmatization(text, allowed_postags=('NOUN', 'PROPN')):
+    """Lemmatizes given text -> breaks text into words, for each word it extracts the root / lemma
+
+    :param text: given text
+    :param allowed_postags: allowed part-of-speech (POS) tags, to be returned in the final result
+    :return: texts_out
+    """
     doc = nlp(text)
     texts_out = [token.lemma_.lower() for token in doc if token.pos_ in allowed_postags]
     return texts_out
 
-
-def running_counter(associations, job_title):
-    # running = Counter()
-    # for cnter in associations[job_title]:
-    #     running += Counter(cnter)
-
-    # return running
-    pass
 
 if __name__ == '__main__':
     # data_source = os.path.join(os.getcwd(), 'data/raw/bman93_job/Top30.csv')
@@ -149,7 +156,11 @@ if __name__ == '__main__':
         tfIdfVectorizer = TfidfVectorizer(use_idf=True)
         tfIdf = tfIdfVectorizer.fit_transform(df[df.Query == title].Description_clean)
 
-        df_tf = pd.DataFrame(tfIdf[0].T.todense(), index=tfIdfVectorizer.get_feature_names(), columns=["TF-IDF"])
+        df_tf = pd.DataFrame(
+                    tfIdf[0].T.todense(),
+                    index   = tfIdfVectorizer.get_feature_names(),
+                    columns = ["TF-IDF"]
+        )
         df_tf = df_tf.reset_index(level=0)
         df_tf = df_tf.rename(columns={'index': 'term', 'TF-IDF': 'tfidf_score'})
 
@@ -165,7 +176,6 @@ if __name__ == '__main__':
                     .Description_lemmatized_wc.values
             )
         )
-
         df_result = pd.DataFrame.from_dict(result, orient='index').reset_index()
         df_result = df_result.rename(columns={'index': 'term', 0: 'freq'})
 
@@ -173,4 +183,7 @@ if __name__ == '__main__':
         df_result = df_result.sort_values('freq', ascending=False)
         df_result.to_csv(f'../data/processed/descriptions_global_counter/ncount_{title}.csv', index=False)
 
-        # json.dump(OrderedDict(result.most_common()), open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w'))
+        # json.dump(
+        #     OrderedDict(result.most_common()),
+        #     open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w')
+        # )
