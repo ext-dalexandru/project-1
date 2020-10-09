@@ -110,12 +110,12 @@ def lemmatization(text, allowed_postags=('NOUN', 'PROPN')):
     texts_out = [token.lemma_.lower() for token in doc if token.pos_ in allowed_postags]
     return texts_out
 
+# ----------------------------------------------------------------------------
+def generate_datasets(df):
+    """Generate datasets based on raw data.
 
-if __name__ == '__main__':
-    # data_source = os.path.join(os.getcwd(), 'data/raw/bman93_job/Top30.csv')
-    # df = pd.read_csv(data_source)
-    df = pd.read_csv('../data/raw/bman93_job/Top30.csv')
-
+    :param df: raw data
+    """
     # ================== ETL ===================================================
     df['Query_split'] = df.Query.str.split()
     df['Query_word_len'] = df.Query_split.apply(len)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # ================== Keyword association ===================================
     # Time issues
-    df = df[:50]
+    # df = df[:50]
 
     print('Running clean_tags(): ')
     df['Description_clean'] = df.Description.progress_apply(clean_tags)
@@ -157,9 +157,9 @@ if __name__ == '__main__':
         tfIdf = tfIdfVectorizer.fit_transform(df[df.Query == title].Description_clean)
 
         df_tf = pd.DataFrame(
-                    tfIdf[0].T.todense(),
-                    index   = tfIdfVectorizer.get_feature_names(),
-                    columns = ["TF-IDF"]
+            tfIdf[0].T.todense(),
+            index=tfIdfVectorizer.get_feature_names(),
+            columns=["TF-IDF"]
         )
         df_tf = df_tf.reset_index(level=0)
         df_tf = df_tf.rename(columns={'index': 'term', 'TF-IDF': 'tfidf_score'})
@@ -172,7 +172,7 @@ if __name__ == '__main__':
         result = reduce(
             lambda l1, l2: l1 + l2,
             tqdm(
-                df[df.Query == title]\
+                df[df.Query == title] \
                     .Description_lemmatized_wc.values
             )
         )
@@ -187,3 +187,11 @@ if __name__ == '__main__':
         #     OrderedDict(result.most_common()),
         #     open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w')
         # )
+
+
+if __name__ == '__main__':
+    # data_source = os.path.join(os.getcwd(), 'data/raw/bman93_job/Top30.csv')
+    # df = pd.read_csv(data_source)
+    df = pd.read_csv('../data/raw/bman93_job/Top30.csv')
+    generate_datasets(df)
+    
