@@ -3,6 +3,7 @@
 # from collections import OrderedDict
 from collections import Counter
 from functools import reduce
+from itertools import chain
 import json
 # import os
 import re
@@ -15,6 +16,7 @@ import pandas as pd
 import spacy
 nlp = spacy.load('en_core_web_sm')
 # from textpipe import doc
+from textblob import TextBlob
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
@@ -110,6 +112,29 @@ def lemmatization(text, allowed_postags=('NOUN', 'PROPN')):
     texts_out = [token.lemma_.lower() for token in doc if token.pos_ in allowed_postags]
     return texts_out
 
+def spacy_chunks(text):
+    # TODO: refactor in order to run spacy's nlp() once, and extract all data needed
+    return list( nlp(text).noun_chunks )
+
+def textblob_chunks(text):
+    return list( TextBlob(text).noun_phrases )
+
+def chain_lists(df, column, flag_column):
+    """Based on a 1-list per row, combine all lists
+
+    :param df: original dataframe
+    :param column: column name
+    :param flag_column: flag column name, to be used later in a full outer join
+    :return: df_chunk
+    """
+    lst = list(chain.from_iterable(df[column].values))
+    print(lst)
+
+    df_chunk = pd.DataFrame(lst, columns=['noun'])
+    df_chunk[flag_column] = True
+
+    return df_chunk
+
 # ----------------------------------------------------------------------------
 def generate_datasets(df):
     """Generate datasets based on raw data.
@@ -133,10 +158,14 @@ def generate_datasets(df):
 
     # ================== Keyword association ===================================
     # Time issues
-    # df = df[:50]
+    df = df[:50]
 
     print('Running clean_tags(): ')
     df['Description_clean'] = df.Description.progress_apply(clean_tags)
+
+    df['Description_spacy_chunks'] = df.Description_clean.progress_apply(spacy_chunks)
+    df['Description_txtblob_chunks'] = df.Description_clean.progress_apply(textblob_chunks)
+
 
     print('Running lemmatization(): ')
     df['Description_lemmatized'] = df.Description_clean.progress_apply(lemmatization)
@@ -188,10 +217,17 @@ def generate_datasets(df):
         #     open(f'../data/processed/descriptions_global_counter/nouns_count_{title}.json', 'w')
         # )
 
+        # chain all chunks
+        chain_lists(df, 'Description_spacy_chunks', 'is_spacy_chunk'). \
+            to_csv(f'../data/processed/descriptions_chunks/spc_chunks_{title}.csv', index=False)
+
+        chain_lists(df, 'Description_txtblob_chunks', 'is_textblob_chunk'). \
+            to_csv(f'../data/processed/descriptions_chunks/txt_chunks_{title}.csv', index=False)
+
 
 if __name__ == '__main__':
     # data_source = os.path.join(os.getcwd(), 'data/raw/bman93_job/Top30.csv')
     # df = pd.read_csv(data_source)
-    df = pd.read_csv('../data/raw/bman93_job/Top30.csv')
-    generate_datasets(df)
-    
+    df_bman = pd.read_csv('../data/raw/bman93_job/Top30.csv')
+    generate_datasets(df_bman)
+
